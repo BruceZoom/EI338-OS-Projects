@@ -114,14 +114,13 @@ int main(void)
 	{
 		printf("osh>");
 		fflush(stdout);
-//		fflush(stdin);
 		
 		clear_args(args);
 		infile[0] = '\0';
 		outfile[0] = '\0';
 		
 		get_input(cmd);
-		printf("%s\n", cmd);
+		//printf("%s\n", cmd);
 		
 		// history feature
 		if(!strcmp(cmd, "!!"))
@@ -145,38 +144,6 @@ int main(void)
 			break;
 		}
 		
-		// redirection
-		if(strlen(infile))
-		{
-			if((fd_in = open(infile, O_RDWR, 0644)) == -1)
-			{
-				printf("Open Error.\n");
-				continue;
-			}
-			if((dup_in = dup2(fd_in, STDIN_FILENO)) == -1)
-			{
-				printf("Dup2 Error.\n");
-				close(fd_in);
-				exit(0);
-				continue;
-			}
-		}
-		if(strlen(outfile))
-		{
-			if((fd_out = open(outfile, O_RDWR|O_CREAT, 0644)) == -1)
-			{
-				printf("Open Error.\n");
-				continue;
-			}
-			if((dup_out = dup2(fd_out, STDOUT_FILENO)) == -1)
-			{
-				printf("Dup2 Error.\n");
-				close(fd_out);
-				exit(0);
-				continue;
-			}
-		}
-		
 		// (1) fork a child process using fork()
 		pid = fork();
 		if(pid < 0)
@@ -188,18 +155,57 @@ int main(void)
 		// (2) the child process will invoke execvp()
 		else if(pid == 0)
 		{
-			printf("executing\n");
-			if(args[1] == NULL) printf("NULL\n");
-			else printf("%s\n", args[1]);
+			// redirection
+			if(strlen(infile))
+			{
+				if((fd_in = open(infile, O_RDWR, 0644)) == -1)
+				{
+					printf("Open Error.\n");
+					continue;
+				}
+				if((dup_in = dup2(fd_in, STDIN_FILENO)) == -1)
+				{
+					printf("Dup2 Error.\n");
+					close(fd_in);
+					exit(0);
+					continue;
+				}
+			}
+			if(strlen(outfile))
+			{
+				if((fd_out = open(outfile, O_RDWR|O_CREAT, 0644)) == -1)
+				{
+					printf("Open Error.\n");
+					continue;
+				}
+				if((dup_out = dup2(fd_out, STDOUT_FILENO)) == -1)
+				{
+					printf("Dup2 Error.\n");
+					close(fd_out);
+					exit(0);
+					continue;
+				}
+			}
+			
 			child_err = execvp(args[0], args);
-			printf("execution complete\n");
 			if(child_err < 0)
 			{
 				printf("No command '%s' found.\n", args[0]);
 				exit(0);
 			}
 			should_run = 0;
-			printf("child complete\n");
+			
+			// close redirection
+			if(strlen(infile))
+			{
+				close(dup_in);
+				close(fd_in);
+			}
+			if(strlen(outfile))
+			{
+				close(dup_out);
+				close(fd_out);
+			}
 		}
 		// (3) parent will invoke wait() unless command include &
 		else
@@ -207,27 +213,10 @@ int main(void)
 			// FIXME: when including '&', the input and output shifts
 			if(!(flag & FLAG_AMPERSAND) || strlen(outfile))
 			{
-				printf("parent waiting\n");
 				wait(NULL);
 			}
-			if(strlen(infile))
-			{
-				printf("input redirect\n");
-				//close(dup_in);
-				close(fd_in);
-			}
-			if(strlen(outfile))
-			{
-				printf("output redirect");
-				//dup2(STDOUT_FILENO, fd_out);
-				close(fd_out);
-				close(dup_out);
-			}
+			
 		}
-		
-		
-		
-		printf("\n\n\n\n");
 	}
 	
 	return 0;
