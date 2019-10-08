@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <fcntl.h>
 
 #define MAX_LINE 80
 
@@ -29,25 +30,47 @@ void get_input(char *cmd)
 	}
 }
 
-int parse_input(char *cmd, char **args)
+int parse_input(char *cmd, char **args, char *infile, char *outfile)
 {
 	char *token;
 	int i = 0;
 	int flag = FLAG_DEFAULT;
+	int red = 0;
 	
 	token = strtok(cmd, " ");
 	while(token != NULL)
 	{
-		if(!strcmp(token, "&"))
+		if(red)
+		{
+			switch(red)
+			{
+			case '<':
+				strcpy(infile, token);
+				infile[strlen(token)] = '\0';
+				break;
+			case '>':
+				strcpy(outfile, token);
+				outfile[strlen(token)] = '\0';
+				break;
+			default:
+				break;
+			}
+			red = 0;
+		}
+		else if(!strcmp(token, "&"))
 		{
 			flag = flag | FLAG_AMPERSAND;
+		}
+		else if(!strcmp(token, "<") || !strcmp(token, ">"))
+		{
+			red = token[0];
 		}
 		else
 		{
 			args[i] = (char*)malloc(sizeof(char) * (strlen(token) + 1));
 			strcpy(args[i], token);
 			args[i][strlen(token)] = '\0';
-			// printf("%s\n", args[i]);
+			//printf("%s\n", args[i]);
 			i++;
 		}
 		
@@ -77,6 +100,10 @@ int main(void)
 	int child_err = 0;
 	char cmd[MAX_LINE];
 	char cmd_buf[MAX_LINE+1];
+	char infile[MAX_LINE];
+	char outfile[MAX_LINE];
+	int fd_in, fd_out;
+	int dup_in, dup_out;
 	
 	pid_t pid;
 	
@@ -87,9 +114,16 @@ int main(void)
 	{
 		printf("osh>");
 		fflush(stdout);
+//		fflush(stdin);
 		
 		clear_args(args);
+		infile[0] = '\0';
+		outfile[0] = '\0';
+		
 		get_input(cmd);
+		printf("%s\n", cmd);
+		
+		// history feature
 		if(!strcmp(cmd, "!!"))
 		{
 			if(strlen(cmd_buf) <= 0)
@@ -100,7 +134,9 @@ int main(void)
 			strcpy(cmd, cmd_buf);
 		}
 		strcpy(cmd_buf, cmd);
-		flag = parse_input(cmd, args);
+		
+		// parse command
+		flag = parse_input(cmd, args, infile, outfile);
 		
 		// check exit condition
 		if(!strcmp(args[0], "exit"))
@@ -108,6 +144,39 @@ int main(void)
 			clear_args(args);
 			break;
 		}
+		
+		// redirection
+		if(strlen(infile))
+		{
+			if((fd_in = open(infile, O_RDWR, 0644)) == -1)
+			{
+				printf("Open Error.\n");
+				continue;
+			}
+			if((dup_in = dup2(fd_in, STDIN_FILENO)) == -1)
+			{
+				printf("Dup2 Error.\n");
+				close(fd_in);
+				exit(0);
+				continue;
+			}
+		}
+		if(strlen(outfile))
+		{
+			if((fd_out = open(outfile, O_RDWR|O_CREAT, 0644)) == -1)
+			{
+				printf("Open Error.\n");
+				continue;
+			}
+			if((dup_out = dup2(fd_out, STDOUT_FILENO)) == -1)
+			{
+				printf("Dup2 Error.\n");
+				close(fd_out);
+				exit(0);
+				continue;
+			}
+		}
+		
 		// (1) fork a child process using fork()
 		pid = fork();
 		if(pid < 0)
@@ -119,23 +188,46 @@ int main(void)
 		// (2) the child process will invoke execvp()
 		else if(pid == 0)
 		{
+			printf("executing\n");
+			if(args[1] == NULL) printf("NULL\n");
+			else printf("%s\n", args[1]);
 			child_err = execvp(args[0], args);
+			printf("execution complete\n");
 			if(child_err < 0)
 			{
 				printf("No command '%s' found.\n", args[0]);
 				exit(0);
 			}
 			should_run = 0;
+			printf("child complete\n");
 		}
 		// (3) parent will invoke wait() unless command include &
 		else
 		{
 			// FIXME: when including '&', the input and output shifts
-			if(!(flag & FLAG_AMPERSAND))
+			if(!(flag & FLAG_AMPERSAND) || strlen(outfile))
 			{
+				printf("parent waiting\n");
 				wait(NULL);
 			}
+			if(strlen(infile))
+			{
+				printf("input redirect\n");
+				//close(dup_in);
+				close(fd_in);
+			}
+			if(strlen(outfile))
+			{
+				printf("output redirect");
+				//dup2(STDOUT_FILENO, fd_out);
+				close(fd_out);
+				close(dup_out);
+			}
 		}
+		
+		
+		
+		printf("\n\n\n\n");
 	}
 	
 	return 0;
