@@ -8,9 +8,14 @@
 
 #define MAX_LINE 80
 
-#define FLAG_DEFAULT 0			// 0000
-#define FLAG_AMPERSAND 1		// 0001
-#define FLAG_LAST_COMMAND 2		// 0010
+#define FLAG_DEFAULT 0			// 00000
+#define FLAG_ERROR 1			// 00001
+#define FLAG_AMPERSAND 2		// 00010
+#define FLAG_LAST_COMMAND 4		// 00100
+#define FLAG_PIPE 8				// 01000
+
+#define READ_END 0
+#define WRITE_END 1
 
 void init_args(char **args)
 {
@@ -30,12 +35,13 @@ void get_input(char *cmd)
 	}
 }
 
-int parse_input(char *cmd, char **args, char *infile, char *outfile)
+int parse_input(char *cmd, char **args, char *infile, char *outfile, int *pipe_sep)
 {
 	char *token;
 	int i = 0;
 	int flag = FLAG_DEFAULT;
 	int red = 0;
+	int pipe_cnt = 0;
 	
 	token = strtok(cmd, " ");
 	while(token != NULL)
@@ -64,6 +70,25 @@ int parse_input(char *cmd, char **args, char *infile, char *outfile)
 		else if(!strcmp(token, "<") || !strcmp(token, ">"))
 		{
 			red = token[0];
+			if(!strcmp(token, "<") && pipe_cnt != 0)
+			{
+				printf("Input redirection can only be used in the FIRST command in the sequence.\n");
+				flag = flag | FLAG_ERROR;
+			}
+		}
+		else if(!strcmp(token, "|"))
+		{
+			if(strlen(outfile))
+			{
+				printf("Output redirection can only be used in the LAST command in the sequence.\n");
+				flag = flag | FLAG_ERROR;
+			}
+		
+			flag = flag | FLAG_PIPE;
+			args[i] = NULL;
+			pipe_sep[pipe_cnt] = ++i - (pipe_cnt > 0 ? pipe_sep[pipe_cnt-1] : 0);
+			//printf("%d\n", pipe_sep[pipe_cnt]);
+			pipe_cnt++;
 		}
 		else
 		{
@@ -77,6 +102,13 @@ int parse_input(char *cmd, char **args, char *infile, char *outfile)
 		token = strtok(NULL, " ");
 	}
 	args[i] = NULL;
+	pipe_sep[pipe_cnt] = -1;
+	
+	if(red)
+	{
+		printf("Empty file descriptor.\n");
+		flag = flag | FLAG_ERROR;
+	}
 	
 	return flag;
 }
@@ -92,6 +124,85 @@ void clear_args(char **args)
 	}
 }
 
+// FIXME: need to press 'q' frequently to exit less, extra q's will be taken as inputs
+int pipe_exe(char **args, int *pipe_sep, char *infile, char *outfile)
+{
+	int fd[2];
+	pid_t pid;
+	int child_err;
+	int fd_red;
+	
+	if(pipe(fd) == -1)
+	{
+		fprintf(stderr, "Pipe Failed");
+		return -1;
+	}
+	
+	pid = fork();
+	if(pid < 0)
+	{
+		fprintf(stderr, "Fork Failed");
+		return -1;
+	}
+	if(pid > 0)
+	{
+		close(fd[READ_END]);
+		dup2(fd[WRITE_END], STDOUT_FILENO);
+		
+		if(strlen(infile))
+		{
+			if((fd_red = open(infile, O_RDWR, 0644)) == -1)
+			{
+				printf("Open Error.\n");
+				exit(0);
+			}
+			dup2(fd_red, STDIN_FILENO);
+		}
+		
+		child_err = execvp(args[0], args);
+		close(fd_red);
+		if(child_err < 0)
+		{
+			printf("No command '%s' found.\n", args[0]);
+			exit(0);
+		}
+		
+		wait(NULL);
+	}
+	else
+	{
+		close(fd[WRITE_END]);
+		dup2(fd[READ_END], STDIN_FILENO);
+		
+		args = args + pipe_sep[0];
+		if(pipe_sep[1] == -1)
+		{
+			if(strlen(outfile))
+			{
+				if((fd_red = open(outfile, O_RDWR|O_CREAT, 0644)) == -1)
+				{
+					printf("Open Error.\n");
+					exit(0);
+				}
+				dup2(fd_red, STDOUT_FILENO);
+			}
+		
+			child_err = execvp(args[0], args);
+			close(fd_red);
+			if(child_err < 0)
+			{
+				printf("No command '%s' found.\n", args[0]);
+				exit(0);
+			}
+		}
+		else
+		{
+			pipe_exe(args, pipe_sep+1, "", outfile);
+		}
+	}
+	
+}
+
 int main(void)
 {
 	char *args[MAX_LINE/2 + 1];
@@ -104,6 +215,7 @@ int main(void)
 	char outfile[MAX_LINE];
 	int fd_in, fd_out;
 	int dup_in, dup_out;
+	int pipe_sep[MAX_LINE];
 	
 	pid_t pid;
 	
@@ -114,6 +226,7 @@ int main(void)
 	{
 		printf("osh>");
 		fflush(stdout);
+		//fflush(stdin);
 		
 		clear_args(args);
 		infile[0] = '\0';
@@ -135,7 +248,11 @@ int main(void)
 		strcpy(cmd_buf, cmd);
 		
 		// parse command
-		flag = parse_input(cmd, args, infile, outfile);
+		flag = parse_input(cmd, args, infile, outfile, pipe_sep);
+		if(flag & FLAG_ERROR)
+		{
+			continue;
+		}
 		
 		// check exit condition
 		if(!strcmp(args[0], "exit"))
@@ -155,56 +272,63 @@ int main(void)
 		// (2) the child process will invoke execvp()
 		else if(pid == 0)
 		{
-			// redirection
-			if(strlen(infile))
+			if(flag & FLAG_PIPE)
 			{
-				if((fd_in = open(infile, O_RDWR, 0644)) == -1)
+				pipe_exe(args, pipe_sep, infile, outfile);
+			}
+			else
+			{
+				// redirection
+				if(strlen(infile))
 				{
-					printf("Open Error.\n");
-					continue;
+					if((fd_in = open(infile, O_RDWR, 0644)) == -1)
+					{
+						printf("Open Error.\n");
+						continue;
+					}
+					if((dup_in = dup2(fd_in, STDIN_FILENO)) == -1)
+					{
+						printf("Dup2 Error.\n");
+						close(fd_in);
+						exit(0);
+						continue;
+					}
 				}
-				if((dup_in = dup2(fd_in, STDIN_FILENO)) == -1)
+				if(strlen(outfile))
 				{
-					printf("Dup2 Error.\n");
+					if((fd_out = open(outfile, O_RDWR|O_CREAT, 0644)) == -1)
+					{
+						printf("Open Error.\n");
+						continue;
+					}
+					if((dup_out = dup2(fd_out, STDOUT_FILENO)) == -1)
+					{
+						printf("Dup2 Error.\n");
+						close(fd_out);
+						exit(0);
+						continue;
+					}
+				}
+			
+				child_err = execvp(args[0], args);
+				if(child_err < 0)
+				{
+					printf("No command '%s' found.\n", args[0]);
+					exit(0);
+				}
+				should_run = 0;
+			
+				// close redirection
+				if(strlen(infile))
+				{
+					close(dup_in);
 					close(fd_in);
-					exit(0);
-					continue;
 				}
-			}
-			if(strlen(outfile))
-			{
-				if((fd_out = open(outfile, O_RDWR|O_CREAT, 0644)) == -1)
+				if(strlen(outfile))
 				{
-					printf("Open Error.\n");
-					continue;
-				}
-				if((dup_out = dup2(fd_out, STDOUT_FILENO)) == -1)
-				{
-					printf("Dup2 Error.\n");
+					close(dup_out);
 					close(fd_out);
-					exit(0);
-					continue;
 				}
-			}
-			
-			child_err = execvp(args[0], args);
-			if(child_err < 0)
-			{
-				printf("No command '%s' found.\n", args[0]);
-				exit(0);
-			}
-			should_run = 0;
-			
-			// close redirection
-			if(strlen(infile))
-			{
-				close(dup_in);
-				close(fd_in);
-			}
-			if(strlen(outfile))
-			{
-				close(dup_out);
-				close(fd_out);
 			}
 		}
 		// (3) parent will invoke wait() unless command include &
