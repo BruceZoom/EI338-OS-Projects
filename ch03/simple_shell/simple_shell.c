@@ -29,7 +29,8 @@ void init_args(char **args)
 void get_input(char *cmd)
 {
 	fgets(cmd, MAX_LINE, stdin);
-	if(cmd[strlen(cmd)-1] == '\n')
+//	printf("%d\n", strlen(cmd));
+	if(strlen(cmd) > 1 && cmd[strlen(cmd)-1] == '\n')
 	{
 		cmd[strlen(cmd)-1] = '\0';
 	}
@@ -46,6 +47,11 @@ int parse_input(char *cmd, char **args, char *infile, char *outfile, int *pipe_s
 	token = strtok(cmd, " ");
 	while(token != NULL)
 	{
+		if(strlen(token) <= 0)
+		{
+			token = strtok(NULL, " ");
+			continue;
+		}
 		if(red)
 		{
 			switch(red)
@@ -109,6 +115,10 @@ int parse_input(char *cmd, char **args, char *infile, char *outfile, int *pipe_s
 		printf("Empty file descriptor.\n");
 		flag = flag | FLAG_ERROR;
 	}
+	if(i == 0 || args[0][0] == '\n')
+	{
+		flag = flag | FLAG_ERROR;
+	}
 	
 	return flag;
 }
@@ -160,7 +170,11 @@ int pipe_exe(char **args, int *pipe_sep, char *infile, char *outfile)
 		}
 		
 		child_err = execvp(args[0], args);
-		close(fd_red);
+		close(fd[WRITE_END]);
+		if(strlen(infile))
+		{
+			close(fd_red);
+		}
 		if(child_err < 0)
 		{
 			printf("No command '%s' found.\n", args[0]);
@@ -188,7 +202,10 @@ int pipe_exe(char **args, int *pipe_sep, char *infile, char *outfile)
 			}
 		
 			child_err = execvp(args[0], args);
-			close(fd_red);
+			if(strlen(outfile));
+			{
+				close(fd_red);
+			}
 			if(child_err < 0)
 			{
 				printf("No command '%s' found.\n", args[0]);
@@ -199,6 +216,7 @@ int pipe_exe(char **args, int *pipe_sep, char *infile, char *outfile)
 		{
 			pipe_exe(args, pipe_sep+1, "", outfile);
 		}
+		close(fd[READ_END]);
 	}
 	
 }
