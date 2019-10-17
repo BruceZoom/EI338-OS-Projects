@@ -225,7 +225,7 @@ int main(void)
 {
 	char *args[MAX_LINE/2 + 1];
 	int should_run = 1;
-	int flag;
+	int flag, last_flag = 0;
 	int child_err = 0;
 	char cmd[MAX_LINE];
 	char cmd_buf[MAX_LINE+1];
@@ -271,6 +271,12 @@ int main(void)
 		{
 			continue;
 		}
+		
+		if(last_flag & FLAG_AMPERSAND)
+		{
+			wait(NULL);
+		}
+		last_flag = flag;
 		
 		// check exit condition
 		if(!strcmp(args[0], "exit"))
