@@ -333,13 +333,19 @@ int main(void)
 						continue;
 					}
 				}
-			
-				child_err = execvp(args[0], args);
-				if(child_err < 0)
+
+				// FIXME: although concurrent running is available,
+				// still need to recheck the correctness of file operaiton
+				if(!(flag & FLAG_AMPERSAND) || strlen(outfile) || 0 == fork())
 				{
-					printf("No command '%s' found.\n", args[0]);
-					exit(0);
+					child_err = execvp(args[0], args);
+					if(child_err < 0)
+					{
+						printf("No command '%s' found.\n", args[0]);
+						exit(0);
+					}
 				}
+				
 				should_run = 0;
 			
 				// close redirection
@@ -358,14 +364,10 @@ int main(void)
 		// (3) parent will invoke wait() unless command include &
 		else
 		{
-			// FIXME: when including '&', the input and output shifts
-			if(!(flag & FLAG_AMPERSAND) || strlen(outfile))
-			{
-				waitpid(pid, NULL, 0);
-			}
-			
+			waitpid(pid, NULL, 0);
 		}
 	}
 	
 	return 0;
 }
+
