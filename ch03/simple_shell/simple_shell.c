@@ -181,7 +181,7 @@ int pipe_exe(char **args, int *pipe_sep, char *infile, char *outfile)
 			exit(0);
 		}
 		
-		wait(NULL);
+		waitpid(pid, NULL, 0);
 	}
 	else
 	{
@@ -272,11 +272,11 @@ int main(void)
 			continue;
 		}
 		
-		if(last_flag & FLAG_AMPERSAND)
-		{
-			wait(NULL);
-		}
-		last_flag = flag;
+		// if(last_flag & FLAG_AMPERSAND)
+		// {
+		// 	wait(NULL);
+		// }
+		// last_flag = flag;
 		
 		// check exit condition
 		if(!strcmp(args[0], "exit"))
@@ -361,7 +361,7 @@ int main(void)
 			// FIXME: when including '&', the input and output shifts
 			if(!(flag & FLAG_AMPERSAND) || strlen(outfile))
 			{
-				wait(NULL);
+				waitpid(pid, NULL, 0);
 			}
 			
 		}
