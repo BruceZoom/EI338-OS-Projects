@@ -91,7 +91,11 @@ void *merging(void *param)
 	k = i;
 	while(i < m || j < p->high)
 	{
-		if(i >= m || data[i] > data[j])
+		if(i >= m)
+			res[k++] = data[j++];
+		else if(j >= p->high)
+			res[k++] = data[i++];
+		else if(data[i] > data[j])
 			res[k++] = data[j++];
 		else
 			res[k++] = data[i++];
