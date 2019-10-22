@@ -6,12 +6,11 @@ public class MergeSortTask extends SortTask {
 
     public MergeSortTask(int begin, int end, int[] array) {
         super(begin, end, array);
+        middle = (begin + end) / 2;
     }
 
     @Override
     protected void Sort() {
-        middle = (begin + end) / 2;
-
         MergeSortTask leftTask = new MergeSortTask(begin, middle, array);
         MergeSortTask rightTask = new MergeSortTask(middle, end, array);
 
@@ -24,7 +23,7 @@ public class MergeSortTask extends SortTask {
         Merge();
     }
 
-    protected void Merge(){
+    private void Merge(){
         int i, j, k;
         int[] tmp = new int[end-begin+1];
         i = begin;

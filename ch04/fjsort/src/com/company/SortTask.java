@@ -36,9 +36,13 @@ public abstract class SortTask extends RecursiveAction {
                     k = j;
                 }
             }
-            tmp = array[i];
-            array[i] = array[k];
-            array[k] = tmp;
+            Swap(i, k);
         }
+    }
+
+    protected void Swap(int i, int j){
+        int tmp = array[i];
+        array[i] = array[j];
+        array[j] = tmp;
     }
 }
