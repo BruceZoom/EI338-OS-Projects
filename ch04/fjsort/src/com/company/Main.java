@@ -6,13 +6,13 @@ import java.util.concurrent.*;
 public class Main {
     static final int SIZE = 10000;
 
-    private static int[] array;
+    private static Integer[] array;
 
     public static void main(String[] args) {
-        array = new int[SIZE];
+        array = new Integer[SIZE];
 
-        MergeSortTask mergeSortTask = new MergeSortTask(0, SIZE, array);
-        QuickSortTask quickSortTask = new QuickSortTask(0, SIZE, array);
+        MergeSortTask<Integer> mergeSortTask = new MergeSortTask<Integer>(0, SIZE, array);
+        QuickSortTask<Integer> quickSortTask = new QuickSortTask<Integer>(0, SIZE, array);
 
         System.out.println("Merge Sort");
         Test(mergeSortTask);
@@ -26,7 +26,7 @@ public class Main {
 
         System.out.print("Before sort: ");
         for (int i = 0; i < SIZE; i++) {
-            array[i] = rand.nextInt(2*SIZE);
+            array[i] = rand.nextInt(2 * SIZE);
             System.out.print(array[i] + " ");
         }
         System.out.println();
@@ -34,7 +34,7 @@ public class Main {
         pool.invoke(task);
 
         System.out.print("After sort: ");
-        for(int i=0; i<SIZE; i++){
+        for (int i = 0; i < SIZE; i++) {
             System.out.print(array[i] + " ");
         }
         System.out.println();

@@ -1,18 +1,21 @@
 package com.company;
 
-public class MergeSortTask extends SortTask {
+// performs merge sort to sort an array
+public class MergeSortTask<T extends Comparable<T>> extends SortTask<T> {
 
     private int middle;
 
-    public MergeSortTask(int begin, int end, int[] array) {
+    public MergeSortTask(int begin, int end, T[] array) {
         super(begin, end, array);
         middle = (begin + end) / 2;
     }
 
     @Override
+    // special sort: merge sort
     protected void Sort() {
-        MergeSortTask leftTask = new MergeSortTask(begin, middle, array);
-        MergeSortTask rightTask = new MergeSortTask(middle, end, array);
+        // merge sort two sub-arrays
+        MergeSortTask<T> leftTask = new MergeSortTask<T>(begin, middle, array);
+        MergeSortTask<T> rightTask = new MergeSortTask<T>(middle, end, array);
 
         leftTask.fork();
         rightTask.fork();
@@ -20,27 +23,33 @@ public class MergeSortTask extends SortTask {
         leftTask.join();
         rightTask.join();
 
+        // merge
         Merge();
     }
 
-    private void Merge(){
+    // merge sorted array
+    private void Merge() {
         int i, j, k;
-        int[] tmp = new int[end-begin+1];
+        T[] tmp = array.clone();
         i = begin;
         j = middle;
-        k = 0;
-        while(i < middle || j < end){
-            if(i >= middle)
+        k = begin;
+
+        // merge into a temporary array
+        while (i < middle || j < end) {
+            if (i >= middle)
                 tmp[k++] = array[j++];
-            else if(j >= end)
+            else if (j >= end)
                 tmp[k++] = array[i++];
-            else if(array[i] > array[j])
+            else if (array[i].compareTo(array[j]) > 0)
                 tmp[k++] = array[j++];
             else
                 tmp[k++] = array[i++];
         }
-        for(i=begin; i<end; i++){
-            array[i] = tmp[i-begin];
+
+        // overwrite to the original array
+        for (i = begin; i < end; i++) {
+            array[i] = tmp[i];
         }
     }
 }
