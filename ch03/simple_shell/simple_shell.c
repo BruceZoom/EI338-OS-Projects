@@ -141,6 +141,8 @@ int pipe_exe(char **args, int *pipe_sep, char *infile, char *outfile)
 	pid_t pid;
 	int child_err;
 	int fd_red;
+	int tmp_fd;
+	tmp_fd = dup(STDOUT_FILENO);
 	
 	if(pipe(fd) == -1)
 	{
@@ -156,9 +158,13 @@ int pipe_exe(char **args, int *pipe_sep, char *infile, char *outfile)
 	}
 	if(pid > 0)
 	{
+		printf("parent process\n");
+		printf("%d\n", pid);
+		//printf("%s\n", infile);
 		close(fd[READ_END]);
 		dup2(fd[WRITE_END], STDOUT_FILENO);
-		
+		close(fd[WRITE_END]);
+
 		if(strlen(infile))
 		{
 			if((fd_red = open(infile, O_RDWR, 0644)) == -1)
@@ -170,7 +176,9 @@ int pipe_exe(char **args, int *pipe_sep, char *infile, char *outfile)
 		}
 		
 		child_err = execvp(args[0], args);
-		close(fd[WRITE_END]);
+		//close(fd[WRITE_END]);
+		//dup2(STDOUT_FILENO, tmp_fd);
+//		close(tmp)
 		if(strlen(infile))
 		{
 			close(fd_red);
@@ -180,19 +188,22 @@ int pipe_exe(char **args, int *pipe_sep, char *infile, char *outfile)
 			printf("No command '%s' found.\n", args[0]);
 			exit(0);
 		}
-		
+		printf("wait\n");
 		waitpid(pid, NULL, 0);
+		printf("finish wait\n");
 	}
 	else
 	{
 		close(fd[WRITE_END]);
 		dup2(fd[READ_END], STDIN_FILENO);
+		close(fd[READ_END]);
 		
 		args = args + pipe_sep[0];
 		if(pipe_sep[1] == -1)
 		{
 			if(strlen(outfile))
 			{
+				printf("redirect");
 				if((fd_red = open(outfile, O_RDWR|O_CREAT, 0644)) == -1)
 				{
 					printf("Open Error.\n");
@@ -216,9 +227,9 @@ int pipe_exe(char **args, int *pipe_sep, char *infile, char *outfile)
 		{
 			pipe_exe(args, pipe_sep+1, "", outfile);
 		}
-		close(fd[READ_END]);
+		//close(fd[READ_END]);
 	}
-	
+	exit(0);
 }
 
 int main(void)
