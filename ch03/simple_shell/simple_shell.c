@@ -134,7 +134,19 @@ void clear_args(char **args)
 	}
 }
 
-// FIXME: need to press 'q' frequently to exit less, extra q's will be taken as inputs
+/*
+	"com1 | com2" =>
+	Parent -- fork -- wait A
+			   |
+			   |
+			   Child A -- fork -- wait B -- exe(com2)
+			 	  	   	   |
+				  	       |
+					       Child B -- exe(com1)
+
+*/
+
+// pipe_exe_fall execute piped commands in the reverse order, that previous command is executed in the child process of the process that execute the current commands in a fall fashion
 int pipe_exe_fall(char **args, int *pipe_sep, int fd_red_in, int fd_red_out)
 {
 	int fd[2];
@@ -155,20 +167,24 @@ int pipe_exe_fall(char **args, int *pipe_sep, int fd_red_in, int fd_red_out)
 		fprintf(stderr, "Fork Failed");
 		return -1;
 	}
+
 	if(pid > 0)
 	{
+		// redirections
 		close(fd[WRITE_END]);
 		dup2(fd[READ_END], STDIN_FILENO);
 		close(fd[READ_END]);
-		
 		if(fd_red_out != -1)
 		{
 			dup2(fd_red_out, STDOUT_FILENO);
 		}
 		
+		// wait for child process before execute
 		waitpid(pid, NULL, 0);
 
+		// set the command and arguments to the correct ones
 		tmp_args = args + pipe_sep[0];
+		// execute
 		child_err = execvp(tmp_args[0], tmp_args);
 		if(child_err < 0)
 		{
@@ -178,6 +194,7 @@ int pipe_exe_fall(char **args, int *pipe_sep, int fd_red_in, int fd_red_out)
 	}
 	else
 	{
+		// redirection
 		close(fd[READ_END]);
 		dup2(fd[WRITE_END], STDOUT_FILENO);
 		close(fd[WRITE_END]);
@@ -185,12 +202,15 @@ int pipe_exe_fall(char **args, int *pipe_sep, int fd_red_in, int fd_red_out)
 		pipe_sep += 1;
 		if(pipe_sep[1] == -1)
 		{
+			// only check input file redirection in the first command (bottom command in the fall)
 			if(fd_red_in != -1)
 			{
 				dup2(fd_red_in, STDIN_FILENO);
 			}
 		
+			// set the command and arguments to the correct ones
 			tmp_args = args + pipe_sep[0];
+			// execute
 			child_err = execvp(tmp_args[0], tmp_args);
 			if(child_err < 0)
 			{
@@ -200,12 +220,15 @@ int pipe_exe_fall(char **args, int *pipe_sep, int fd_red_in, int fd_red_out)
 		}
 		else
 		{
+			// pipe execute remaining commands
+			// the fd_red_out is set to one because only check output file redirection in the last command (top command in the fall)
 			pipe_exe_fall(args, pipe_sep, fd_red_in, -1);
 		}
 	}
 	exit(0);
 }
 
+// adjust pipe separators for pipe_fall
 int adjust_fall(int *pipe_sep)
 {
 	int i = 0;
@@ -220,6 +243,8 @@ int adjust_fall(int *pipe_sep)
 	i = 0;
 	pipe_sep[n+1] = 0;
 	pipe_sep[n+2] = -1;
+	// reverse pipe separator
+	// the i-th separator points to the (total_command - i)-th command
 	while(i < n)
 	{
 		tmp = pipe_sep[i];
@@ -229,7 +254,19 @@ int adjust_fall(int *pipe_sep)
 	}
 }
 
-int pipe_exe_chain(char **args, int *pipe_sep, char *infile, char *outfile)
+/*
+	"com1 | com2" =>
+	Parent -- fork ---- fork -- wait all
+			   |         |
+			   |  		 |
+			   Child A   Child B
+			   |	     |
+			   exe(com1) exe(com2)
+*/
+
+// pipe_exe_chain execute commands in multiple child processes that belong to the same parent process, which execute in a chained fashion
+// FIXME: it will not work currently because pipe() creates ordinary pipe, we need named pipe
+int pipe_exe_chain(char **args, int *pipe_sep, int fd_red_in, int fd_red_out)
 {
 	size_t children[MAX_LINE];
 	int fd[MAX_LINE][2];
@@ -238,21 +275,6 @@ int pipe_exe_chain(char **args, int *pipe_sep, char *infile, char *outfile)
 	int fd_red_in = -1;
 	int fd_red_out = -1;
 	int i;
-	
-	printf("chained pipe\n");
-
-	if(strlen(infile) &&
-		(fd_red_in = open(infile, O_RDWR, 0644)) == -1)
-	{
-		printf("Open Error.\n");
-		exit(0);
-	}
-	if(strlen(outfile) &&
-		(fd_red_out = open(outfile, O_RDWR|O_CREAT, 0644)) == -1)
-	{
-		printf("Open Error.\n");
-		exit(0);
-	}
 
 	while(1)
 	{
@@ -286,7 +308,6 @@ int pipe_exe_chain(char **args, int *pipe_sep, char *infile, char *outfile)
 			// secure: pipe only establish when it is not the last child
 			else
 			{
-				printf("output pipe\n");
 				close(fd[child_idx][READ_END]);
 				dup2(fd[child_idx][WRITE_END], STDOUT_FILENO);
 				close(fd[child_idx][WRITE_END]);
@@ -302,7 +323,6 @@ int pipe_exe_chain(char **args, int *pipe_sep, char *infile, char *outfile)
 			// other children establish previous pipe redirection
 			else
 			{
-				printf("input pipe\n");
 				close(fd[child_idx-1][WRITE_END]);
 				dup2(fd[child_idx-1][READ_END], STDIN_FILENO);
 				close(fd[child_idx-1][READ_END]);
@@ -316,9 +336,6 @@ int pipe_exe_chain(char **args, int *pipe_sep, char *infile, char *outfile)
 			}
 			exit(0);
 		}
-		//printf("waiting\n");
-		//waitpid(children[child_idx], NULL, 0);
-		//wait(0);
 		// update child index and command information
 		child_idx++;
 		if(pipe_sep[0] == -1)
@@ -328,20 +345,10 @@ int pipe_exe_chain(char **args, int *pipe_sep, char *infile, char *outfile)
 		args += pipe_sep[0];
 		pipe_sep++;
 	}
-	for(i=0; i<child_idx; i++)
-	{
-		printf("%d\n", i);
-	}
 	// wait for termination of all children once
 	for(i=0; i<child_idx; i++)
 	{
 		waitpid(children[i], NULL, 0);
-	}
-	if(fd_red_in != -1){
-		close(fd_red_in);
-	}
-	if(fd_red_out != -1){
-		close(fd_red_out);
 	}
 	exit(err_flag);
 }
@@ -369,7 +376,6 @@ int main(void)
 	{
 		printf("osh>");
 		fflush(stdout);
-		//fflush(stdin);
 		
 		clear_args(args);
 		infile[0] = '\0';
@@ -378,7 +384,6 @@ int main(void)
 		fd_out = -1;
 		
 		get_input(cmd);
-		//printf("%s\n", cmd);
 		
 		// history feature
 		if(!strcmp(cmd, "!!"))
@@ -399,12 +404,6 @@ int main(void)
 			continue;
 		}
 		
-		// if(last_flag & FLAG_AMPERSAND)
-		// {
-		// 	wait(NULL);
-		// }
-		// last_flag = flag;
-		
 		// check exit condition
 		if(!strcmp(args[0], "exit"))
 		{
@@ -412,6 +411,7 @@ int main(void)
 			break;
 		}
 		
+		// open redirection files
 		if(strlen(infile))
 		{
 			if((fd_in = open(infile, O_RDWR, 0644)) == -1)
@@ -440,12 +440,18 @@ int main(void)
 		// (2) the child process will invoke execvp()
 		else if(pid == 0)
 		{
+			// pipe execution is separated from regular execution
+			// chained pipe may perform regular execution
 			if(flag & FLAG_PIPE)
 			{
+				// two steps for pipe fall execution
 				adjust_fall(pipe_sep);
 				pipe_exe_fall(args, pipe_sep, fd_in, fd_out);
+
+				// pipe chained execution
 				// pipe_exe_chain(args, pipe_sep, infile, outfile);
 			}
+			// regular execution
 			else
 			{
 				// redirection
@@ -485,7 +491,7 @@ int main(void)
 				should_run = 0;
 			}
 		}
-		// (3) parent will invoke wait() unless command include &
+		// parent wait for the child process
 		else
 		{
 			waitpid(pid, NULL, 0);
