@@ -67,7 +67,7 @@ ssize_t proc_write(struct file *file, const char __user *usr_buf, size_t count, 
 	int rv = 0;
 	char *k_mem;
 	
-	k_mem = kmalloc(count, GFP_KERNEL);
+	k_mem = kmalloc(count+1, GFP_KERNEL);
 	
 	copy_from_user(k_mem, usr_buf, count);
 	

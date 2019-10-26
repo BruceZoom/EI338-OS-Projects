@@ -2,10 +2,10 @@
 
 sudo insmod pid.ko
 
-echo "12765" > /proc/pid
+echo "1" > /proc/pid
 cat /proc/pid
 
-echo "500" > /proc/pid
+echo "2274" > /proc/pid
 cat /proc/pid
 
 sudo rmmod pid
