@@ -272,8 +272,6 @@ int pipe_exe_chain(char **args, int *pipe_sep, int fd_red_in, int fd_red_out)
 	int fd[MAX_LINE][2];
 	int child_idx = 0;
 	int err_flag = 0;
-	int fd_red_in = -1;
-	int fd_red_out = -1;
 	int i;
 
 	while(1)
