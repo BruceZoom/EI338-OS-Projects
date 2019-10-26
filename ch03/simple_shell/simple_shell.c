@@ -241,6 +241,8 @@ int pipe_exe_chain(char **args, int *pipe_sep, char *infile, char *outfile)
 	int fd_red_in = -1;
 	int fd_red_out = -1;
 	int i;
+	
+	printf("chained pipe\n");
 
 	if(strlen(infile) &&
 		(fd_red_in = open(infile, O_RDWR, 0644)) == -1)
@@ -255,14 +257,16 @@ int pipe_exe_chain(char **args, int *pipe_sep, char *infile, char *outfile)
 		exit(0);
 	}
 
-	while(true)
+	while(1)
 	{
 		// only establish pipe to next child if there exists a next command
-		if(pipe_sep[0] != -1 && pipe(fd[child_idx]) == -1){
+		if(pipe_sep[0] != -1){
+			printf("pipe: %d\n", child_idx);
+		if(pipe(fd[child_idx]) == -1){
 			fprintf(stderr, "Pipe Failed");
 			err_flag = 1;
 			break;
-		}
+		}}
 		
 		// fork child process
 		children[child_idx] = fork();
@@ -275,21 +279,6 @@ int pipe_exe_chain(char **args, int *pipe_sep, char *infile, char *outfile)
 		
 		if(children[child_idx] == 0)
 		{
-			// the first child only checks input file redirection
-			if(child_idx == 0)
-			{
-				if(fd_red_in != -1)
-				{
-					dup2(fd_red_in, STDIN_FILENO);
-				}
-			}
-			// other children establish previous pipe redirection
-			else
-			{
-				close(fd[child_idx-1][WRITE_END]);
-				dup2(fd[child_idx-1][READ_END], STDIN_FILENO);
-				close(fd[child_idx-1][READ_END]);
-			}
 			// the last child only checks output file redirection
 			if(pipe_sep[0] == -1)
 			{
@@ -302,19 +291,39 @@ int pipe_exe_chain(char **args, int *pipe_sep, char *infile, char *outfile)
 			// secure: pipe only establish when it is not the last child
 			else
 			{
-				close(fd[READ_END]);
-				dup2(fd[WRITE_END], STDOUT_FILENO);
-				close(fd[WRITE_END]);
+				printf("output pipe\n");
+				close(fd[child_idx][READ_END]);
+				dup2(fd[child_idx][WRITE_END], STDOUT_FILENO);
+				close(fd[child_idx][WRITE_END]);
+			}
+			// the first child only checks input file redirection
+			if(child_idx == 0)
+			{
+				if(fd_red_in != -1)
+				{
+					dup2(fd_red_in, STDIN_FILENO);
+				}
+			}
+			// other children establish previous pipe redirection
+			else
+			{
+				printf("input pipe\n");
+				close(fd[child_idx-1][WRITE_END]);
+				dup2(fd[child_idx-1][READ_END], STDIN_FILENO);
+				close(fd[child_idx-1][READ_END]);
 			}
 			// execute command
-			child_err = execvp(args[0], args);
+			int child_err = execvp(args[0], args);
 			if(child_err < 0)
 			{
 				printf("No command '%s' found.\n", args[0]);
 				exit(0);
 			}
+			exit(0);
 		}
-		
+		//printf("waiting\n");
+		//waitpid(children[child_idx], NULL, 0);
+		//wait(0);
 		// update child index and command information
 		child_idx++;
 		if(pipe_sep[0] == -1)
@@ -324,11 +333,20 @@ int pipe_exe_chain(char **args, int *pipe_sep, char *infile, char *outfile)
 		args += pipe_sep[0];
 		pipe_sep++;
 	}
-
+	for(i=0; i<child_idx; i++)
+	{
+		printf("%d\n", i);
+	}
 	// wait for termination of all children once
 	for(i=0; i<child_idx; i++)
 	{
 		waitpid(children[i], NULL, 0);
+	}
+	if(fd_red_in != -1){
+		close(fd_red_in);
+	}
+	if(fd_red_out != -1){
+		close(fd_red_out);
 	}
 	exit(err_flag);
 }
@@ -410,7 +428,7 @@ int main(void)
 		{
 			if(flag & FLAG_PIPE)
 			{
-				pipe_exe(args, pipe_sep, infile, outfile);
+				//pipe_exe(args, pipe_sep, infile, outfile);
 				pipe_exe_chain(args, pipe_sep, infile, outfile);
 			}
 			else
