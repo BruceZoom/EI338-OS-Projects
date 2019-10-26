@@ -142,15 +142,6 @@ int pipe_exe_fall(char **args, int *pipe_sep, int fd_red_in, int fd_red_out)
 	int child_err;
 	int tmp_fd;
 	char** tmp_args;
-	
-	if(fd_red_in != -1)
-	{
-		dup2(fd_red_in, STDIN_FILENO);
-	}
-	if(pipe_sep[1] == -1 && fd_red_out != -1)
-	{
-		dup2(fd_red_out, STDOUT_FILENO);
-	}
 
 	if(pipe(fd) == -1)
 	{
@@ -166,22 +157,19 @@ int pipe_exe_fall(char **args, int *pipe_sep, int fd_red_in, int fd_red_out)
 	}
 	if(pid > 0)
 	{
-		printf("parent process\n");
-		printf("%d\n", pid);
-		//printf("%s\n", infile);
-		close(fd[READ_END]);
-		dup2(fd[WRITE_END], STDOUT_FILENO);
 		close(fd[WRITE_END]);
+		dup2(fd[READ_END], STDIN_FILENO);
+		close(fd[READ_END]);
 		
-		// printf("wait\n");
+		if(fd_red_out != -1)
+		{
+			dup2(fd_red_out, STDOUT_FILENO);
+		}
+		
 		waitpid(pid, NULL, 0);
-		// printf("finish wait\n");
 
 		tmp_args = args + pipe_sep[0];
 		child_err = execvp(tmp_args[0], tmp_args);
-		//close(fd[WRITE_END]);
-		//dup2(STDOUT_FILENO, tmp_fd);
-		//		close(tmp)
 		if(child_err < 0)
 		{
 			printf("No command '%s' found.\n", tmp_args[0]);
@@ -190,13 +178,18 @@ int pipe_exe_fall(char **args, int *pipe_sep, int fd_red_in, int fd_red_out)
 	}
 	else
 	{
-		close(fd[WRITE_END]);
-		dup2(fd[READ_END], STDIN_FILENO);
 		close(fd[READ_END]);
+		dup2(fd[WRITE_END], STDOUT_FILENO);
+		close(fd[WRITE_END]);
 		
 		pipe_sep += 1;
 		if(pipe_sep[1] == -1)
-		{		
+		{
+			if(fd_red_in != -1)
+			{
+				dup2(fd_red_in, STDIN_FILENO);
+			}
+		
 			tmp_args = args + pipe_sep[0];
 			child_err = execvp(tmp_args[0], tmp_args);
 			if(child_err < 0)
@@ -207,7 +200,7 @@ int pipe_exe_fall(char **args, int *pipe_sep, int fd_red_in, int fd_red_out)
 		}
 		else
 		{
-			pipe_exe_fall(args, pipe_sep, -1, fd_red_out);
+			pipe_exe_fall(args, pipe_sep, fd_red_in, -1);
 		}
 	}
 	exit(0);
@@ -221,6 +214,7 @@ int adjust_fall(int *pipe_sep)
 	while(pipe_sep[i+1] != -1)
 	{
 		pipe_sep[i+1] += pipe_sep[i];
+		i++;
 	}
 	n = i;
 	i = 0;
@@ -263,13 +257,11 @@ int pipe_exe_chain(char **args, int *pipe_sep, char *infile, char *outfile)
 	while(1)
 	{
 		// only establish pipe to next child if there exists a next command
-		if(pipe_sep[0] != -1){
-			printf("pipe: %d\n", child_idx);
-		if(pipe(fd[child_idx]) == -1){
+		if(pipe_sep[0] != -1 && pipe(fd[child_idx]) == -1){
 			fprintf(stderr, "Pipe Failed");
 			err_flag = 1;
 			break;
-		}}
+		}
 		
 		// fork child process
 		children[child_idx] = fork();
