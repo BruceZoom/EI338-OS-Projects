@@ -35,21 +35,16 @@ public class MergeSortTask<T extends Comparable<T>> extends SortTask<T> {
         j = middle;
         k = begin;
 
-        // merge into a temporary array
+        // merge into one array
         while (i < middle || j < end) {
             if (i >= middle)
-                tmp[k++] = array[j++];
+                array[k++] = tmp[j++];
             else if (j >= end)
-                tmp[k++] = array[i++];
-            else if (array[i].compareTo(array[j]) > 0)
-                tmp[k++] = array[j++];
+                array[k++] = tmp[i++];
+            else if (tmp[i].compareTo(tmp[j]) > 0)
+                array[k++] = tmp[j++];
             else
-                tmp[k++] = array[i++];
-        }
-
-        // overwrite to the original array
-        for (i = begin; i < end; i++) {
-            array[i] = tmp[i];
+                array[k++] = tmp[i++];
         }
     }
 }

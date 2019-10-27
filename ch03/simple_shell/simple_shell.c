@@ -478,7 +478,7 @@ int main(void)
 
 				// FIXME: although concurrent running is available,
 				// still need to recheck the correctness of file operaiton
-				if(!(flag & FLAG_AMPERSAND) || strlen(outfile) || 0 == fork())
+				if(!(flag & FLAG_AMPERSAND) || 0 == fork())
 				{
 					child_err = execvp(args[0], args);
 					if(child_err < 0)
