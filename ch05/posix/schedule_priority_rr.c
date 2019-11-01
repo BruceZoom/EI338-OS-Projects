@@ -11,21 +11,17 @@ static struct node *list = NULL;
 static struct node *stack = NULL;
 static struct task *prior_task = NULL;
 
-void _add(struct task *t, struct node **target){
-    insert(target, t);
-}
-
 // add a task to the list 
 void add(char *name, int priority, int burst){
     struct task *t = malloc(sizeof(struct task));
 	t->name = name;
     t->priority = priority;
     t->burst = burst;
-    _add(t, &list);
+    insert(&list, t);
 }
 
 void reverse(struct node *temp){
-    _add(temp->task, &list);
+	insert(&list, temp->task);
     free(temp);
 }
 
@@ -40,7 +36,7 @@ void execute(struct node *temp){
     if(temp->task->burst > QUANTUM){
         run(temp->task, QUANTUM);
         temp->task->burst -= QUANTUM;
-        _add(temp->task, &stack);
+        insert(&stack, temp->task);
     }
     else{
         run(temp->task, temp->task->burst);
@@ -63,17 +59,18 @@ void schedule(){
         prior_task = NULL;
         traverse(stack, find_prior_inv);
         delete(&stack, prior_task);
-        add(&list, prior_task);
+        insert(&list, prior_task);
     }
     stack = NULL;
     while(list != NULL){
         head = list;
-        if(head->task->priority < last_priority){
+        if(head->task->priority < last_priority && stack != NULL){
             traverse(stack, reverse);
             stack = NULL;            
         }
         else{
             list = list->next;
+            last_priority = head->task->priority;
             execute(head);
         }
         if(list == NULL){
