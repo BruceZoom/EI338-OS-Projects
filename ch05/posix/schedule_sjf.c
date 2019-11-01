@@ -41,7 +41,7 @@ void schedule(){
     traverse(remain, reverse);
     while(list != NULL){
         min_task = NULL;
-        traverse(remain, find_next_min);
+        traverse(list, find_next_min);
         run(min_task, min_task->burst);
         delete(&list, min_task);
         free(min_task);
