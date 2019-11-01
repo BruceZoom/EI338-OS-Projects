@@ -41,15 +41,19 @@ void delete(struct node **head, Task *task) {
 
         prev->next = temp->next;
     }
+    free(temp);
 }
 
 // traverse the list
-void traverse(struct node *head) {
+void traverse(struct node *head, void (*callback)(struct node*)) {
     struct node *temp;
+    struct node *td;
     temp = head;
 
     while (temp != NULL) {
-        printf("[%s] [%d] [%d]\n",temp->task->name, temp->task->priority, temp->task->burst);
+        // printf("[%s] [%d] [%d]\n",temp->task->name, temp->task->priority, temp->task->burst);
+        td = temp;
         temp = temp->next;
+        callback(td);
     }
 }
