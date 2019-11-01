@@ -40,18 +40,26 @@ void execute(struct node *temp){
     free(temp);
 }
 
+void test(struct node *temp)
+{
+	printf("%s\t%d\n", temp->task->name, temp->task->burst);
+}
+
 // invoke the scheduler
 void schedule(){
     struct node *head;
     stack = list->next;
     list->next = NULL;
     traverse(stack, reverse);
+    stack = NULL;
     while(list != NULL){
         head = list;
         list = list->next;
         execute(head);
         if(list == NULL){
+		    list = NULL;
             traverse(stack, reverse);
+            stack = NULL;
         }
     }
 }
