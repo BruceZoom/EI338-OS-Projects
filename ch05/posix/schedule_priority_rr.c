@@ -40,13 +40,9 @@ void execute(struct node *temp){
     }
     else{
         run(temp->task, temp->task->burst);
+        free(temp->task);
     }
     free(temp);
-}
-
-void test(struct node *temp)
-{
-	printf("%s\t%d\n", temp->task->name, temp->task->burst);
 }
 
 // invoke the scheduler

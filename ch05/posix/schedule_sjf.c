@@ -10,21 +10,17 @@
 static struct node *list = NULL;
 static struct task *min_task;
 
-void _add(struct task *t, struct node **target){
-    insert(target, t);
-}
-
 // add a task to the list 
 void add(char *name, int priority, int burst){
     struct task *t = malloc(sizeof(struct task));
 	t->name = name;
     t->priority = priority;
     t->burst = burst;
-    _add(t, &list);
+    insert(&list, t);
 }
 
 void reverse(struct node *temp){
-    _add(temp->task, &list);
+    insert(&list, temp->task);
     free(temp);
 }
 
