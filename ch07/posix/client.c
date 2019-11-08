@@ -12,6 +12,14 @@ struct data
     int b;
 };
 
+void divide(void *param)
+{
+    struct data *temp;
+    temp = (struct data*)param;
+	sleep(1);
+    printf("I add two values %d and %d result = %f\n",temp->a, temp->b, (float)temp->a / temp->b);
+}
+
 void add(void *param)
 {
     struct data *temp;
@@ -31,10 +39,15 @@ int main(void)
     pool_init();
 
     // submit the work to the queue
-    pool_submit(&add,&work);
+	pool_submit(&divide, &work);
+    pool_submit(&add, &work);
+	pool_submit(&divide, &work);
+    pool_submit(&add, &work);
+	pool_submit(&divide, &work);
+    pool_submit(&add, &work);
 
     // may be helpful 
-    //sleep(3);
+	sleep(3);
 
     pool_shutdown();
 

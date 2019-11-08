@@ -27,13 +27,13 @@ static task taskqueue[QUEUE_SIZE];
 static int head = 0;
 static int tail = 0;
 static int cnt = 0;
-static pthread_mutex queue_mutex;
-static semt_t cnt_sem;
+pthread_mutex_t queue_mutex;
+sem_t cnt_sem;
 
 // the worker bee
 pthread_t bees[NUMBER_OF_THREADS];
 
-int ifFull(){
+int isFull(){
     return cnt == QUEUE_SIZE;
 }
 
