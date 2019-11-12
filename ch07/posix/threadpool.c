@@ -46,8 +46,10 @@ int isEmpty(){
 int enqueue(task t) 
 {
     pthread_mutex_lock(&queue_mutex);
-    if(isFull())
+    if(isFull()){
+        pthread_mutex_unlock(&queue_mutex);
         return 1;
+    }
     taskqueue[tail++] = t;
     tail %= QUEUE_SIZE;
     cnt++;
@@ -98,6 +100,7 @@ int pool_submit(void (*somefunction)(void *p), void *p)
     worktodo.function = somefunction;
     worktodo.data = p;
     flag = enqueue(worktodo);
+    if(flag) return flag;
     sem_post(&cnt_sem);
     return flag;
 }
