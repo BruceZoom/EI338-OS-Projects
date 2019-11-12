@@ -1,5 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <pthread.h>
+#include <unistd.h>
 #include "buffer.h"
 
 #define MAX_SLEEP_PERIOD 3
@@ -35,11 +37,11 @@ void *consumer(void *param){
 }
 
 int main(int argc, char *argv[]){
-    int sleep_time = 20;
+    int sleep_time = 15;
     int n_producer = 3;
     int n_consumer = 3;
-    int *producers;
-    int *consumers;
+    pthread_t *producers;
+    pthread_t *consumers;
     int i;
 
     // get command line input
@@ -49,8 +51,8 @@ int main(int argc, char *argv[]){
 
     // initialize buffer and memory for thread identifiers
     init();
-    producers = (int*)malloc(sizeof(int) * n_producer);
-    consumers = (int*)malloc(sizeof(int) * n_consumer);
+    producers = (pthread_t*)malloc(sizeof(pthread_t) * n_producer);
+    consumers = (pthread_t*)malloc(sizeof(pthread_t) * n_consumer);
 
     // create producers and consumers
     for(i = 0; i < n_producer; i++){
@@ -66,11 +68,11 @@ int main(int argc, char *argv[]){
     // cancel and join threads
     for(i = 0; i < n_producer; i++){
         pthread_cancel(producers[i]);
-        pthread_join(&producers[i], NULL);
+        pthread_join(producers[i], NULL);
     }
     for(i = 0; i < n_consumer; i++){
         pthread_cancel(consumers[i]);
-        pthread_join(&consumers[i], NULL);
+        pthread_join(consumers[i], NULL);
     }
 
     // clean up and exit
