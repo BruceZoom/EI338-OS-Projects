@@ -40,14 +40,18 @@ int main(void)
 
     // submit the work to the queue
 	pool_submit(&divide, &work);
-    pool_submit(&add, &work);
+	pool_submit(&divide, &work);
+	pool_submit(&divide, &work);
+	pool_submit(&divide, &work);
 	pool_submit(&divide, &work);
     pool_submit(&add, &work);
-	pool_submit(&divide, &work);
+    pool_submit(&add, &work);
+    pool_submit(&add, &work);
+    pool_submit(&add, &work);
     pool_submit(&add, &work);
 
     // may be helpful 
-	sleep(3);
+	sleep(10);
 
     pool_shutdown();
 
