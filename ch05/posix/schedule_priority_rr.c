@@ -51,6 +51,7 @@ void schedule(){
     int last_priority = 0;
     stack = list;
     list = NULL;
+    // sort by descending priority
     while(stack != NULL){
         prior_task = NULL;
         traverse(stack, find_prior_inv);
@@ -60,15 +61,18 @@ void schedule(){
     stack = NULL;
     while(list != NULL){
         head = list;
+        // meet the end of current queue with same priority
         if(head->task->priority < last_priority && stack != NULL){
             traverse(stack, reverse);
             stack = NULL;            
         }
+        // still within the current priority
         else{
             list = list->next;
             last_priority = head->task->priority;
             execute(head);
         }
+        // reload current priority queue
         if(list == NULL){
             traverse(stack, reverse);
             stack = NULL;

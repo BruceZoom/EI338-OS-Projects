@@ -90,9 +90,7 @@ void execute(void (*somefunction)(void *p), void *p)
     (*somefunction)(p);
 }
 
-/**
- * Submits work to the pool.
- */
+// Submits work to the pool.
 int pool_submit(void (*somefunction)(void *p), void *p)
 {
     int flag;

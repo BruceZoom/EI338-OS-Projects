@@ -17,7 +17,7 @@ void divide(void *param)
     struct data *temp;
     temp = (struct data*)param;
 	sleep(1);
-    printf("I add two values %d and %d result = %f\n",temp->a, temp->b, (float)temp->a / temp->b);
+    printf("I divide two values %d and %d result = %f\n",temp->a, temp->b, (float)temp->a / temp->b);
 }
 
 void add(void *param)

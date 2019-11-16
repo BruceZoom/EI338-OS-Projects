@@ -25,11 +25,13 @@ void reverse(struct node *temp){
 }
 
 void execute(struct node *temp){
+    // cannot finish in this time slice
     if(temp->task->burst > QUANTUM){
         run(temp->task, QUANTUM);
         temp->task->burst -= QUANTUM;
         insert(&stack, temp->task);
     }
+    // can finish in this time slice
     else{
         run(temp->task, temp->task->burst);
         free(temp->task);
@@ -40,14 +42,18 @@ void execute(struct node *temp){
 // invoke the scheduler
 void schedule(){
     struct node *head;
+    // reverse the order
     stack = list->next;
     list->next = NULL;
     traverse(stack, reverse);
     stack = NULL;
     while(list != NULL){
+        // execute the task
         head = list;
         list = list->next;
         execute(head);
+        // the current round is over,
+        // load the next round of tasks
         if(list == NULL){
 		    list = NULL;
             traverse(stack, reverse);

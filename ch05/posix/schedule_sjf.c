@@ -36,8 +36,10 @@ void schedule(){
     list->next = NULL;
     traverse(remain, reverse);
     while(list != NULL){
+        // find the target
         min_task = NULL;
         traverse(list, find_next_min);
+        // execute and delete the target
         run(min_task, min_task->burst);
         delete(&list, min_task);
         free(min_task);
