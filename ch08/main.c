@@ -14,6 +14,7 @@ int allocation[NUMBER_OF_CUSTOMERS][NUMBER_OF_RESOURCES];
 /* the remaining need of each customer */
 int need[NUMBER_OF_CUSTOMERS][NUMBER_OF_RESOURCES];
 
+// print a vector
 void print_vector(int v[NUMBER_OF_RESOURCES])
 {
     int i;
@@ -22,6 +23,7 @@ void print_vector(int v[NUMBER_OF_RESOURCES])
     printf("\n");
 }
 
+// print a matrix
 void print_matrix(int m[NUMBER_OF_CUSTOMERS][NUMBER_OF_RESOURCES])
 {
     int i, j;
@@ -33,19 +35,22 @@ void print_matrix(int m[NUMBER_OF_CUSTOMERS][NUMBER_OF_RESOURCES])
     }
 }
 
+// copy vector
 void v_cpy(int *dst, int *src){
     int i;
     for(i=0; i<NUMBER_OF_RESOURCES; i++)
         dst[i] = src[i];
 }
 
+// add vector
 void v_add(int *dst, int *src, int sgn){
     int i;
     for(i=0; i<NUMBER_OF_RESOURCES; i++)
         dst[i] += src[i] * sgn;
 }
 
-int v_less(int *left, int *right){
+// compare vector
+int v_leq(int *left, int *right){
     int i;
     int flag = 0;
     for(i=0; i<NUMBER_OF_RESOURCES; i++)
@@ -53,16 +58,18 @@ int v_less(int *left, int *right){
     return (flag == NUMBER_OF_RESOURCES);
 }
 
+// safety algorithm
+// return 1 if safe, 0 if unsafe
 int safety(){
     int work[NUMBER_OF_RESOURCES];
     int finished = 0;
     int i, flag = 1;
     v_cpy(work, available);
     do{
-        if(!flag) return -1;
+        if(!flag) return 0;
         flag = 0;
         for(i=0; i<NUMBER_OF_CUSTOMERS; i++){
-            if(v_less(need[i], work)){
+            if(!(finished & (1 << i)) && v_leq(need[i], work)){
                 flag = 1;
                 v_add(work, allocation[i], 1);
                 finished = (finished | (1 << i));
@@ -72,50 +79,55 @@ int safety(){
     return 1;
 }
 
-void _release_resources(int customer_num, int release[], int sgn){
+// update resources
+void _resources_change(int customer_num, int release[], int sgn){
     v_add(available, release, sgn);
     v_add(allocation[customer_num], release, -sgn);
     v_add(need[customer_num], release, sgn);
 }
 
+// request resources
 int request_resources(int customer_num, int request[]){
     int flag;
-    if(!v_less(request, need[customer_num]))
+    if(!v_leq(request, need[customer_num]))
     {
         printf("request exceeds need\n");
         return -1;
     }
-    if(!v_less(request, available))
+    if(!v_leq(request, available))
     {
         printf("request denied due to limited resource\n");
         return -1;
     }
-    _release_resources(customer_num, request, -1);
+    _resources_change(customer_num, request, -1);
     if(safety()) return 0;
-    _release_resources(customer_num, request, 1);
+    _resources_change(customer_num, request, 1);
     printf("request denied due to deadlock\n");
     return -1;
 }
 
+// release resources
 void release_resources(int customer_num, int release[]){
-    _release_resources(customer_num, release, 1);
+    _resources_change(customer_num, release, 1);
 }
 
 int main(int argc, char **args){
-    FILE *file;
+    FILE *file = fopen("maximum.txt", "r");
+    // FILE *filea = fopen("allocation.txt", "r"); // for quick test
     int i, j;
     int request[NUMBER_OF_RESOURCES];
-    char s[] = "%d\0\0";
-    file = fopen("maximum.txt", "r");
+    char s[3];
     for(i=0; i<NUMBER_OF_CUSTOMERS; i++){
         for(j=0; j<NUMBER_OF_RESOURCES; j++){
             fscanf(file, ((j==NUMBER_OF_RESOURCES-1)?"%d\n":"%d,"), &maximum[i][j]);
+            // fscanf(filea, ((j==NUMBER_OF_RESOURCES-1)?"%d\n":"%d,"), &allocation[i][j]); // for quick test
             allocation[i][j] = 0;
             need[i][j] = maximum[i][j];
-            // printf("%d ", need[i][j]);
+            // need[i][j] = maximum[i][j] - allocation[i][j];   // for quick test
         }
     }
     fclose(file);
+    // fclose(filea);  // for quick test
     for(j=0; j<NUMBER_OF_RESOURCES; j++)
         available[j] = ((j<argc-1)?atoi(args[j+1]):0);
     while(1){
@@ -140,7 +152,7 @@ int main(int argc, char **args){
                 }
             }
             else if(s[1] == 'L' || s[1] == 'l'){
-                if(v_less(request, allocation[j])){
+                if(v_leq(request, allocation[j])){
                     release_resources(j, request);
                     printf("resources released\n");
                 }
